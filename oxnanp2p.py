@@ -1,20 +1,69 @@
 import socket
-
-ip =  "localhost"
-
-udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-udp.bind((ip, 5005))
+import sys
+import threading
 
 
+def readSocketAndOutput(s):
+    global byeFlag
+    print("Enter 'bye' to quit chat")
+    while True:
+        if byeFlag:
+            try:
+                str = s.recv(100).decode()
+                print("\r>>> " + str + "\n<<<", end="", flush=True)
+            except:
+                print("Connection closed")
+                break
 
-while True:
-    data, addr = udp.recvfrom(1024)
-    print data
-    UDP_IP = 'localhost' # IP address is not valid, it is just for example.
-    UDP_PORT = 5005
-    MESSAGE = "Hey there!"
+            if str == "bye":
+                byeFlag = 0;
+                break
+        
+    print("Remote user disconnected!!!")
+    s.close()
+    sys.exit()
+    
+def readSTDINandWriteSocket(s):
+    global byeFlag
+    while True:
+        if byeFlag:
+            str = input("<<< ")
+            s.send(str.encode())
+            if str == "bye":
+                print("Chat termination signal sent!!!")
+                byeFlag = 0;
+                s.close()
+                sys.exit()
+        
 
 
-    sock = socket.socket(socket.AF_INET,
-                 socket.SOCK_DGRAM)
-    sock.sendto(MESSAGE, (UDP_IP, UDP_PORT))
+
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+byeFlag = 1;
+ch = input("Connect[1] to peer or wait[2] for peer connection. Enter choice:")
+
+if ch == "1":
+    host = input("Enter peer IP:")
+    port = 54321
+    s.connect((host, port))
+    threading.Thread(target=readSocketAndOutput, args=(s,)).start()
+    threading.Thread(target=readSTDINandWriteSocket, args=(s,)).start()
+    
+elif ch == "2":
+    host = ''
+    port = 54321
+    s.bind((host, port))
+    s.listen(2)              # Now wait for client connection.
+    print("Waiting for connection...")
+    while True:
+        c, addr = s.accept()     # Establish connection with client.
+        threading.Thread(target=readSocketAndOutput, args=(c,)).start()
+        threading.Thread(target=readSTDINandWriteSocket, args=(c,)).start()
+
+else:
+    print("Incorrect choice")
+    sys.exit()
+
+
+
+
